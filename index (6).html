@@ -1,0 +1,1610 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0891b2">
+    <meta name="description" content="Sistema de Controle de Romaneios - Gestão FIFO">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Romaneios">
+    <title>Controle de Romaneios</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- SheetJS para exportação Excel -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    
+    <!-- CryptoJS para hash de senha -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+
+    <!-- Manifest PWA -->
+    <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiQ29udHJvbGUgZGUgUm9tYW5laW9zIiwic2hvcnRfbmFtZSI6IlJvbWFuZWlvcyIsImRlc2NyaXB0aW9uIjoiU2lzdGVtYSBkZSBDb250cm9sZSBkZSBSb21hbmVpb3MgLSBHZXN0w6NvIEZJRk8iLCJzdGFydF91cmwiOiIuIiwgImRpc3BsYXkiOiJzdGFuZGFsb25lIiwgImJhY2tncm91bmRfY29sb3IiOiAiI2YwZjRmOCIsICJ0aGVtZV9jb2xvciI6ICIjMDg5MWIyIiwgIm9yaWVudGF0aW9uIjogInBvcnRyYWl0LXByaW1hcnkiLCAiaWNvbnMiOiBbeyJzcmMiOiJkYXRhOmltYWdlL3N2Zyt4bWwsJTNDc3ZnIHhtbG5zPSdodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2Zykgdmlld0JveD0nMCAwIDUxMiA1MTInJTNFJTNDcmVjdCB3aWR0aD0nNTEyJyBoZWlnaHQ9JzUxMicgZmlsbD0nJTIzMDg5MWIyJy8lM0UlM0N0ZXh0IHg9JzUwJTI1JyB5PSc1MCUyNScgZm9udC1zaXplPScyNTAnIGZvbnQtd2VpZ2h0PSdib2xkJyBmaWxsPSd3aGl0ZScgdGV4dC1hbmNob3I9J21pZGRsZScgZHk9Jy4zNWVtJyBmb250LWZhbWlseT0nc2Fucy1zZXJpZiclM0VDUiUzQy90ZXh0JTNFJTNDL3N2ZyUzRSIsICJzaXplcyI6ICI1MTJ4NTEyIiwgInR5cGUiOiJpbWFnZS9zdmcreG1sIiwgInB1cnBvc2UiOiJhbnkgbWFza2FibGUifV19">
+    
+    <style>
+        @keyframes blink {
+            0%, 50%, 100% { opacity: 1; }
+            25%, 75% { opacity: 0.3; }
+        }
+        .blink-red {
+            animation: blink 1.5s ease-in-out infinite;
+            background-color: #fee2e2 !important;
+        }
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
+        .btn-huge {
+            min-height: 60px;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+        .hidden { display: none !important; }
+        /* Cores de Status */
+        .status-disponivel { background-color: #ccfbf1; color: #0f766e; } /* teal-100 / teal-700 */
+        .status-em-separacao { background-color: #bfdbfe; color: #1d4ed8; } /* blue-200 / blue-700 */
+        .status-pendente-faturamento { background-color: #e9d5ff; color: #7e22ce; } /* violet-200 / violet-700 */
+        .status-faturado { background-color: #e5e7eb; color: #4b5563; } /* gray-200 / gray-600 */
+
+        /* Cores de Atraso */
+        .atraso-normal { background-color: #ccfbf1; color: #0f766e; } /* teal-100 / teal-700 */
+        .atraso-1-dia { background-color: #fef3c7; color: #b45309; } /* amber-100 / amber-700 */
+        .atraso-2-dias { background-color: #fed7aa; color: #ea580c; } /* orange-200 / orange-700 */
+        .atraso-3-dias { background-color: #fecaca; color: #dc2626; } /* red-200 / red-700 */
+        .atraso-4-mais-dias { background-color: #fca5a5; color: #b91c1c; } /* red-400 / red-800 */
+        .atraso-4-mais-dias.blink {
+            animation: blink 1.5s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="app" class="min-h-screen">
+        
+        <!-- TELA 1: Criar Admin -->
+        <div id="screen-create-admin" class="hidden">
+            <div class="min-h-screen flex items-center justify-center p-4">
+                <div class="bg-white rounded-lg shadow-xl p-8 max-w-md w-full">
+                    <div class="text-center mb-6">
+                        <div class="w-20 h-20 bg-cyan-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <span class="text-white text-3xl font-bold">CR</span>
+                        </div>
+                        <h1 class="text-2xl font-bold text-gray-800">Bem-vindo!</h1>
+                        <p class="text-gray-600 mt-2">Primeira abertura - Crie o administrador do sistema</p>
+                    </div>
+                    
+                    <form id="form-create-admin" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Nome Completo *</label>
+                            <input type="text" id="admin-name" required 
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">E-mail *</label>
+                            <input type="email" id="admin-email" required 
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Senha * (mínimo 6 caracteres)</label>
+                            <input type="password" id="admin-password" required minlength="6"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent">
+                        </div>
+                        <button type="submit" class="w-full bg-cyan-600 text-white py-4 rounded-lg font-semibold hover:bg-cyan-700 transition">
+                            Criar Administrador
+                        </button>
+                        <p id="create-admin-error" class="text-red-500 text-sm text-center hidden">Erro ao criar administrador.</p>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- TELA 2: Login -->
+        <div id="screen-login" class="hidden">
+            <div class="min-h-screen flex items-center justify-center p-4">
+                <div class="bg-white rounded-lg shadow-xl p-8 max-w-md w-full">
+                    <div class="text-center mb-6">
+                        <div class="w-20 h-20 bg-cyan-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <span class="text-white text-3xl font-bold">CR</span>
+                        </div>
+                        <h1 class="text-2xl font-bold text-gray-800">Controle de Romaneios</h1>
+                        <p class="text-gray-600 mt-2">Faça login para continuar</p>
+                    </div>
+                    
+                    <!-- Tabs: Admin / Líder / Faturamento -->
+                    <div class="flex gap-2 mb-6 text-sm" id="login-tabs-container">
+                        <button id="tab-admin-login" class="flex-1 py-2 rounded-lg font-semibold bg-cyan-600 text-white">
+                            Admin
+                        </button>
+                        <button id="tab-leader-login" class="flex-1 py-2 rounded-lg font-semibold bg-gray-200 text-gray-700">
+                            Líder
+                        </button>
+                        <button id="tab-billing-login" class="flex-1 py-2 rounded-lg font-semibold bg-gray-200 text-gray-700">
+                            Faturamento
+                        </button>
+                    </div>
+                    
+                    <!-- Form Admin Login -->
+                    <form id="form-admin-login" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
+                            <input type="email" id="login-admin-email" required 
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Senha</label>
+                            <input type="password" id="login-admin-password" required 
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent">
+                        </div>
+                        <button type="submit" class="w-full bg-cyan-600 text-white py-4 rounded-lg font-semibold hover:bg-cyan-700 transition">
+                            Entrar como Admin
+                        </button>
+                        <p id="login-admin-error" class="text-red-500 text-sm text-center hidden">E-mail ou senha incorretos.</p>
+                    </form>
+                    
+                    <!-- Form Leader Login -->
+                    <form id="form-leader-login" class="space-y-4 hidden">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+                            <input type="text" id="login-leader-name" required 
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Senha</label>
+                            <input type="password" id="login-leader-password" required 
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        </div>
+                        <button type="submit" class="w-full bg-purple-600 text-white py-4 rounded-lg font-semibold hover:bg-purple-700 transition">
+                            Entrar como Líder
+                        </button>
+                        <p id="login-leader-error" class="text-red-500 text-sm text-center hidden">Nome ou senha incorretos.</p>
+                    </form>
+                    
+                    <!-- Form Billing Login -->
+                    <form id="form-billing-login" class="space-y-4 hidden">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+                            <input type="text" id="login-billing-name" required 
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Senha</label>
+                            <input type="password" id="login-billing-password" required 
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                        </div>
+                        <button type="submit" class="w-full bg-green-600 text-white py-4 rounded-lg font-semibold hover:bg-green-700 transition">
+                            Entrar como Faturamento
+                        </button>
+                        <p id="login-billing-error" class="text-red-500 text-sm text-center hidden">Nome ou senha incorretos.</p>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- TELA 3: Dashboard Principal (Admin, Líder, Faturamento) -->
+        <div id="screen-dashboard" class="hidden">
+            <!-- Header -->
+            <header class="bg-cyan-600 text-white shadow-lg sticky top-0 z-20">
+                <div class="container mx-auto px-4 py-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                                <span class="text-white text-xl font-bold">CR</span>
+                            </div>
+                            <div>
+                                <h1 class="text-xl font-bold">Controle de Romaneios</h1>
+                                <p class="text-sm text-cyan-100" id="user-info">Usuário Logado</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button id="btn-settings" class="px-3 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition text-xl" title="Configurações">
+                                ⚙️
+                            </button>
+                            <button id="btn-logout" class="px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition">
+                                Sair
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Tabs Navigation -->
+            <div class="bg-white border-b border-gray-200 sticky top-[72px] z-10 shadow-sm">
+                <div class="container mx-auto px-4">
+                    <div class="flex overflow-x-auto" id="dashboard-tabs">
+                        <!-- Tabs serão injetadas aqui via JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content Area -->
+            <main class="container mx-auto p-4">
+                
+                <!-- ABA 1 – ABASTECIMENTO (só admin) -->
+                <div id="tab-abastecimento" class="tab-content space-y-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-800">📋 Abastecimento de Romaneios</h2>
+                    <div class="bg-white p-6 rounded-lg shadow-md space-y-4">
+                        <label class="block text-sm font-medium text-gray-700">Cole os números de romaneio (um por linha) *</label>
+                        <textarea id="romaneios-input" rows="6" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"></textarea>
+                        
+                        <label class="block text-sm font-medium text-gray-700">Data e Hora de Entrega (para todos) *</label>
+                        <input type="datetime-local" id="data-entrega-input" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500">
+                        
+                        <button id="btn-adicionar-romaneios" class="w-full bg-cyan-600 text-white py-4 rounded-lg font-semibold hover:bg-cyan-700 transition btn-huge">
+                            ADICIONAR TODOS
+                        </button>
+                        <p id="abastecimento-message" class="text-sm text-center hidden"></p>
+                    </div>
+                </div>
+
+                <!-- ABA 2 – FILA FIFO (só admin) -->
+                <div id="tab-fila" class="tab-content space-y-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-800">🚚 Fila FIFO (Não Faturados)</h2>
+                    <div class="flex justify-end mb-4">
+                        <button id="btn-exportar-fila" class="bg-green-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-600 transition">
+                            Exportar para Excel
+                        </button>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-md overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nº Romaneio</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data/Hora Entrega</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Atraso</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabela-fila-fifo" class="bg-white divide-y divide-gray-200">
+                                <!-- Linhas da fila serão injetadas aqui -->
+                            </tbody>
+                        </table>
+                        <p id="fila-vazia" class="text-center py-4 text-gray-500 hidden">A fila FIFO está vazia.</p>
+                    </div>
+                </div>
+
+                <!-- ABA 3 – SEPARAÇÃO (só líderes logados) -->
+                <div id="tab-separacao" class="tab-content space-y-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-800">📦 Separação de Romaneios</h2>
+                    
+                    <!-- Bloco 1: Retirar Romaneio -->
+                    <div class="bg-white p-6 rounded-lg shadow-md space-y-4">
+                        <h3 class="text-xl font-semibold text-blue-600">1. RETIRAR ROMANEIO</h3>
+                        <label class="block text-sm font-medium text-gray-700">Número do Romaneio *</label>
+                        <input type="text" id="separacao-retirar-romaneio" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        
+                        <label class="block text-sm font-medium text-gray-700">Equipe Destino *</label>
+                        <select id="separacao-equipe-destino" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <!-- Opções de equipes serão injetadas aqui -->
+                        </select>
+                        
+                        <button id="btn-retirar-romaneio" class="w-full bg-blue-600 text-white py-4 rounded-lg font-semibold hover:bg-blue-700 transition btn-huge">
+                            RETIRAR
+                        </button>
+                        <p id="separacao-retirar-message" class="text-sm text-center hidden"></p>
+                    </div>
+
+                    <!-- Bloco 2: Finalizar Separação -->
+                    <div class="bg-white p-6 rounded-lg shadow-md space-y-4">
+                        <h3 class="text-xl font-semibold text-green-600">2. FINALIZAR SEPARAÇÃO</h3>
+                        <label class="block text-sm font-medium text-gray-700">Número do Romaneio *</label>
+                        <input type="text" id="separacao-finalizar-romaneio" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                        
+                        <button id="btn-finalizar-separacao" class="w-full bg-green-600 text-white py-4 rounded-lg font-semibold hover:bg-green-700 transition btn-huge">
+                            SEPARAÇÃO CONCLUÍDA
+                        </button>
+                        <p id="separacao-finalizar-message" class="text-sm text-center hidden"></p>
+                    </div>
+                </div>
+
+                <!-- ABA 4 – FATURAMENTO (só responsável pelo faturamento logado) -->
+                <div id="tab-faturamento" class="tab-content space-y-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-800">💰 Faturamento</h2>
+                    
+                    <!-- Lista de Pendentes -->
+                    <div class="bg-white p-4 rounded-lg shadow-md overflow-x-auto">
+                        <h3 class="text-xl font-semibold text-violet-600 mb-4">Romaneios Pendentes de Faturamento</h3>
+                        <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nº Romaneio</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data/Hora Entrega</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data Finalização Separação</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ação</th>
+                            </tr>
+                        </thead>
+                            <tbody id="tabela-pendentes-faturamento" class="bg-white divide-y divide-gray-200">
+                                <!-- Linhas de pendentes serão injetadas aqui -->
+                            </tbody>
+                        </table>
+                        <p id="pendentes-vazio" class="text-center py-4 text-gray-500 hidden">Nenhum romaneio pendente de faturamento.</p>
+                    </div>
+
+                    <!-- Faturar Vários -->
+                    <div class="bg-white p-6 rounded-lg shadow-md space-y-4">
+                        <h3 class="text-xl font-semibold text-green-600">Faturar Vários Romaneios</h3>
+                        <label class="block text-sm font-medium text-gray-700">Cole os números de romaneio (um por linha) *</label>
+                        <textarea id="faturamento-input" rows="4" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"></textarea>
+                        
+                        <button id="btn-faturar-varios" class="w-full bg-green-600 text-white py-4 rounded-lg font-semibold hover:bg-green-700 transition btn-huge">
+                            CONFIRMAR FATURAMENTO
+                        </button>
+                        <p id="faturamento-message" class="text-sm text-center hidden"></p>
+                    </div>
+
+                    <!-- Histórico de Faturados -->
+                    <div class="bg-white p-4 rounded-lg shadow-md space-y-4">
+                        <h3 class="text-xl font-semibold text-gray-800">Histórico de Faturados</h3>
+                        <div class="flex gap-4">
+                            <input type="date" id="filtro-data-faturamento" class="p-2 border border-gray-300 rounded-lg">
+                            <button id="btn-limpar-filtro-faturamento" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition">Limpar Filtro</button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nº Romaneio</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data Finalização Separação</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data Faturamento</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Faturista</th>
+                            </tr>
+                        </thead>
+                                <tbody id="tabela-historico-faturamento" class="bg-white divide-y divide-gray-200">
+                                    <!-- Linhas do histórico serão injetadas aqui -->
+                                </tbody>
+                            </table>
+                            <p id="historico-faturamento-vazio" class="text-center py-4 text-gray-500 hidden">Nenhum romaneio faturado encontrado.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ABA 5 – HISTÓRICO E CONFIGURAÇÕES (só admin) -->
+                <div id="tab-historico-config" class="tab-content space-y-6 hidden">
+                    <h2 class="text-2xl font-bold text-gray-800">📊 Histórico e Configurações</h2>
+                    
+                    <!-- Histórico Completo -->
+                    <div class="bg-white p-4 rounded-lg shadow-md space-y-4">
+                        <h3 class="text-xl font-semibold text-gray-800">Histórico Completo de Romaneios</h3>
+                        <div class="flex flex-wrap gap-4 mb-4">
+                            <input type="text" id="filtro-busca-romaneio" placeholder="Buscar Nº Romaneio" class="p-2 border border-gray-300 rounded-lg">
+                            <select id="filtro-status-romaneio" class="p-2 border border-gray-300 rounded-lg">
+                                <option value="">Todos os Status</option>
+                                <option value="Disponível">Disponível</option>
+                                <option value="Em separação">Em separação</option>
+                                <option value="Pendente de faturamento">Pendente de faturamento</option>
+                                <option value="Faturado">Faturado</option>
+                            </select>
+                            <button id="btn-exportar-historico" class="bg-green-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-600 transition">
+                                Exportar Histórico
+                            </button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nº Romaneio</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data/Hora Entrega</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Líder</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Equipe</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data Finalização Separação</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Faturista</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data Faturamento</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabela-historico-completo" class="bg-white divide-y divide-gray-200">
+                                    <!-- Linhas do histórico completo serão injetadas aqui -->
+                                </tbody>
+                            </table>
+                            <p id="historico-completo-vazio" class="text-center py-4 text-gray-500 hidden">Nenhum romaneio registrado.</p>
+                        </div>
+                    </div>
+
+                    <!-- Gerenciar Usuários e Equipes -->
+                    <div class="bg-white p-6 rounded-lg shadow-md space-y-6">
+                        <h3 class="text-xl font-semibold text-gray-800">Gerenciar Usuários e Equipes</h3>
+                        
+                        <!-- Gerenciar Líderes -->
+                        <div class="border-t pt-4">
+                            <h4 class="text-lg font-medium text-purple-600 mb-3">Líderes de Separação</h4>
+                            <form id="form-add-leader" class="flex gap-2 mb-4">
+                                <input type="text" id="leader-name-input" placeholder="Nome do Líder" required class="p-2 border border-gray-300 rounded-lg flex-grow">
+                                <input type="password" id="leader-password-input" placeholder="Senha" required minlength="6" class="p-2 border border-gray-300 rounded-lg w-24">
+                                <button type="submit" class="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition">Adicionar</button>
+                            </form>
+                            <ul id="lista-lideres" class="space-y-2">
+                                <!-- Líderes serão injetados aqui -->
+                            </ul>
+                        </div>
+
+                        <!-- Gerenciar Faturistas -->
+                        <div class="border-t pt-4">
+                            <h4 class="text-lg font-medium text-green-600 mb-3">Responsáveis pelo Faturamento</h4>
+                            <form id="form-add-billing" class="flex gap-2 mb-4">
+                                <input type="text" id="billing-name-input" placeholder="Nome do Faturista" required class="p-2 border border-gray-300 rounded-lg flex-grow">
+                                <input type="password" id="billing-password-input" placeholder="Senha" required minlength="6" class="p-2 border border-gray-300 rounded-lg w-24">
+                                <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition">Adicionar</button>
+                            </form>
+                            <ul id="lista-faturistas" class="space-y-2">
+                                <!-- Faturistas serão injetados aqui -->
+                            </ul>
+                        </div>
+
+                        <!-- Gerenciar Equipes -->
+                        <div class="border-t pt-4">
+                            <h4 class="text-lg font-medium text-blue-600 mb-3">Equipes de Destino</h4>
+                            <form id="form-add-team" class="flex gap-2 mb-4">
+                                <input type="text" id="team-name-input" placeholder="Nome da Equipe" required class="p-2 border border-gray-300 rounded-lg flex-grow">
+                                <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition">Adicionar</button>
+                            </form>
+                            <ul id="lista-equipes" class="space-y-2">
+                                <!-- Equipes serão injetadas aqui -->
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Limpar Dados -->
+                    <div class="bg-red-100 p-6 rounded-lg shadow-md space-y-4">
+                        <h3 class="text-xl font-semibold text-red-800">🚨 Limpar Todos os Dados</h3>
+                        <p class="text-red-700">Esta ação é irreversível e apagará todos os romaneios, usuários e configurações.</p>
+                        <button id="btn-limpar-dados" class="bg-red-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-red-700 transition">
+                            Limpar Todos os Dados (Confirmação)
+                        </button>
+                    </div>
+                </div>
+
+            </main>
+        </div>
+
+        <!-- Modal de Configurações -->
+        <div id="modal-settings" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+            <div class="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-bold">Configurações do Sistema</h3>
+                    <button id="btn-close-settings" class="text-gray-500 hover:text-gray-700 text-2xl">×</button>
+                </div>
+
+                <!-- Seção de Alteração de Senha (apenas para Admin) -->
+                <div id="settings-change-password" class="space-y-4 border-b pb-4 hidden">
+                    <h4 class="font-semibold text-gray-800">Alterar Senha</h4>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Senha Atual</label>
+                        <input type="password" id="input-current-password" class="w-full p-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Nova Senha (mínimo 6 caracteres)</label>
+                        <input type="password" id="input-new-password" minlength="6" class="w-full p-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Confirmar Nova Senha</label>
+                        <input type="password" id="input-confirm-password" minlength="6" class="w-full p-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <button id="btn-save-password" class="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition font-semibold">Alterar Senha</button>
+                    <p id="password-message" class="text-sm text-center hidden"></p>
+                </div>
+
+                <!-- Seção de Personalização (apenas para Admin) -->
+                <div id="settings-personalization" class="space-y-4 border-b pb-4 hidden">
+                    <h4 class="font-semibold text-gray-800">Personalização</h4>
+                    
+                    <!-- Logo/Imagem -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Logo do Aplicativo</label>
+                        <div class="flex gap-2">
+                            <input type="file" id="input-logo" accept="image/*" class="flex-1 p-2 border border-gray-300 rounded-lg text-sm">
+                            <button id="btn-upload-logo" class="bg-blue-500 text-white px-3 py-2 rounded-lg hover:bg-blue-600 transition text-sm">Upload</button>
+                        </div>
+                        <div id="logo-preview" class="mt-2 w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+                            <img id="logo-preview-img" src="" alt="Logo" class="w-full h-full object-cover hidden">
+                            <span id="logo-preview-text" class="text-gray-400 text-2xl font-bold">CR</span>
+                        </div>
+                    </div>
+
+                    <!-- Cor do Header -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Cor do Header</label>
+                        <div class="flex gap-2">
+                            <input type="color" id="input-header-color" value="#0891b2" class="w-12 h-10 border border-gray-300 rounded-lg cursor-pointer">
+                            <select id="select-header-color" class="flex-1 p-2 border border-gray-300 rounded-lg text-sm">
+                                <option value="#0891b2">Azul Ciano (Padrão)</option>
+                                <option value="#0ea5e9">Azul Claro</option>
+                                <option value="#06b6d4">Ciano</option>
+                                <option value="#3b82f6">Azul</option>
+                                <option value="#8b5cf6">Púrpura</option>
+                                <option value="#ec4899">Rosa</option>
+                                <option value="#ef4444">Vermelho</option>
+                                <option value="#f97316">Laranja</option>
+                                <option value="#eab308">Amarelo</option>
+                                <option value="#22c55e">Verde</option>
+                                <option value="#1f2937">Cinza Escuro</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Nome do Aplicativo -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Nome do Aplicativo</label>
+                        <input type="text" id="input-app-name" placeholder="Controle de Romaneios" class="w-full p-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+
+                    <button id="btn-save-personalization" class="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 transition font-semibold">Salvar Personalização</button>
+                    <p id="personalization-message" class="text-sm text-center hidden"></p>
+                </div>
+
+                <!-- Seção de Informações -->
+                <div class="space-y-2 mt-4 text-sm text-gray-600">
+                    <p><strong>Versão:</strong> 2.0</p>
+                    <p><strong>Usuário:</strong> <span id="settings-user-name">-</span></p>
+                    <p><strong>Tipo:</strong> <span id="settings-user-role">-</span></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de Confirmação -->
+        <div id="modal-confirm" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+            <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full mx-4">
+                <h3 class="text-lg font-bold mb-4" id="modal-confirm-title">Confirmação</h3>
+                <p class="mb-6" id="modal-confirm-body">Tem certeza que deseja realizar esta ação?</p>
+                <div class="flex justify-end gap-3">
+                    <button id="btn-confirm-cancel" class="bg-gray-300 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-400 transition">Cancelar</button>
+                    <button id="btn-confirm-ok" class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition">Confirmar</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Variáveis globais
+        const STORAGE_KEY = 'controleRomaneiosData';
+        let appData = {
+            admin: null,
+            leaders: [],
+            billings: [],
+            teams: ['Equipe A', 'Equipe B', 'Equipe C'], // Equipes iniciais
+            romaneios: [],
+            currentUser: null,
+            currentRole: null
+        };
+
+        // Funções de Utilidade
+        const $ = selector => document.querySelector(selector);
+        const $$ = selector => document.querySelectorAll(selector);
+
+        function loadData() {
+            const data = localStorage.getItem(STORAGE_KEY);
+            if (data) {
+                appData = JSON.parse(data);
+            }
+        }
+
+        function saveData() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+        }
+
+        function hashPassword(password) {
+            // Hash simples com SHA-256
+            return CryptoJS.SHA256(password).toString(CryptoJS.enc.Hex);
+        }
+
+        function showScreen(screenId) {
+            $$('#app > div').forEach(screen => screen.classList.add('hidden'));
+            $(screenId).classList.remove('hidden');
+        }
+
+        function updateUserInfo() {
+            if (appData.currentUser && appData.currentRole) {
+                $('#user-info').textContent = `${appData.currentUser.name} (${appData.currentRole})`;
+            } else {
+                $('#user-info').textContent = 'Deslogado';
+            }
+        }
+
+        function getStatusClass(status) {
+            switch (status) {
+                case 'Disponível': return 'status-disponivel';
+                case 'Em separação': return 'status-em-separacao';
+                case 'Pendente de faturamento': return 'status-pendente-faturamento';
+                case 'Faturado': return 'status-faturado';
+                default: return '';
+            }
+        }
+
+        function calculateDelay(deliveryDate) {
+            const now = new Date();
+            const delivery = new Date(deliveryDate);
+            const diffTime = now - delivery;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays <= 0) return { text: 'Normal', class: 'atraso-normal' };
+            if (diffDays === 1) return { text: '1 dia', class: 'atraso-1-dia' };
+            if (diffDays === 2) return { text: '2 dias', class: 'atraso-2-dias' };
+            if (diffDays === 3) return { text: '3 dias', class: 'atraso-3-dias' };
+            return { text: `${diffDays}+ dias`, class: 'atraso-4-mais-dias blink' };
+        }
+
+        // Lógica de Inicialização e Login
+        function checkInitialState() {
+            loadData();
+            if (!appData.admin) {
+                showScreen('#screen-create-admin');
+            } else {
+                showScreen('#screen-login');
+                // Oculta a aba Admin se não houver admin cadastrado
+                if (appData.admin) {
+                    $('#tab-admin-login').style.display = 'block';
+                } else {
+                    $('#tab-admin-login').style.display = 'none';
+                }
+            }
+        }
+
+        $('#form-create-admin').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = $('#admin-name').value.trim();
+            const email = $('#admin-email').value.trim();
+            const password = $('#admin-password').value;
+
+            if (name && email && password.length >= 6) {
+                appData.admin = {
+                    name: name,
+                    email: email,
+                    passwordHash: hashPassword(password)
+                };
+                saveData();
+                showScreen('#screen-login');
+            } else {
+                $('#create-admin-error').textContent = 'Preencha todos os campos corretamente.';
+                $('#create-admin-error').classList.remove('hidden');
+            }
+        });
+
+        // Lógica de Tabs de Login
+        const loginTabs = {
+            'tab-admin-login': { form: '#form-admin-login', role: 'Admin', color: 'cyan' },
+            'tab-leader-login': { form: '#form-leader-login', role: 'Líder', color: 'purple' },
+            'tab-billing-login': { form: '#form-billing-login', role: 'Faturamento', color: 'green' }
+        };
+
+        $$('#screen-login button[id^="tab-"]').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabId = tab.id;
+                const { form, color } = loginTabs[tabId];
+
+                // Atualiza a aparência das tabs
+                $$('#screen-login button[id^="tab-"]').forEach(t => {
+                    t.classList.remove(`bg-${loginTabs[t.id].color}-600`, 'text-white');
+                    t.classList.add('bg-gray-200', 'text-gray-700');
+                });
+                tab.classList.add(`bg-${color}-600`, 'text-white');
+                tab.classList.remove('bg-gray-200', 'text-gray-700');
+
+                // Mostra o formulário correto
+                $$('#screen-login form').forEach(f => f.classList.add('hidden'));
+                $(form).classList.remove('hidden');
+                
+                // Limpa mensagens de erro
+                $$('#screen-login p[id$="-error"]').forEach(p => p.classList.add('hidden'));
+            });
+        });
+
+        // Lógica de Login
+        function handleLogin(e, role) {
+            e.preventDefault();
+            let user = null;
+            let passwordInput = '';
+            let errorElement = null;
+
+            if (role === 'Admin') {
+                const email = $('#login-admin-email').value.trim();
+                passwordInput = $('#login-admin-password').value;
+                errorElement = $('#login-admin-error');
+                if (appData.admin && appData.admin.email === email && appData.admin.passwordHash === hashPassword(passwordInput)) {
+                    user = appData.admin;
+                }
+            } else if (role === 'Líder') {
+                const name = $('#login-leader-name').value.trim();
+                passwordInput = $('#login-leader-password').value;
+                errorElement = $('#login-leader-error');
+                user = appData.leaders.find(l => l.name === name && l.passwordHash === hashPassword(passwordInput));
+            } else if (role === 'Faturamento') {
+                const name = $('#login-billing-name').value.trim();
+                passwordInput = $('#login-billing-password').value;
+                errorElement = $('#login-billing-error');
+                user = appData.billings.find(b => b.name === name && b.passwordHash === hashPassword(passwordInput));
+            }
+
+            if (user) {
+                appData.currentUser = { name: user.name, email: user.email || null };
+                appData.currentRole = role;
+                saveData();
+                renderDashboard();
+                showScreen('#screen-dashboard');
+            } else {
+                errorElement.textContent = `${role === 'Admin' ? 'E-mail' : 'Nome'} ou senha incorretos.`;
+                errorElement.classList.remove('hidden');
+            }
+        }
+
+        $('#form-admin-login').addEventListener('submit', (e) => handleLogin(e, 'Admin'));
+        $('#form-leader-login').addEventListener('submit', (e) => handleLogin(e, 'Líder'));
+        $('#form-billing-login').addEventListener('submit', (e) => handleLogin(e, 'Faturamento'));
+
+        $('#btn-logout').addEventListener('click', () => {
+            appData.currentUser = null;
+            appData.currentRole = null;
+            saveData();
+            showScreen('#screen-login');
+            // Reseta para a tab Admin no login
+            $('#tab-admin-login').click();
+        });
+
+        // Lu00f3gica de Configurau00e7u00f5es
+        $('#btn-settings').addEventListener('click', () => {
+            $('#settings-user-name').textContent = appData.currentUser.name;
+            $('#settings-user-role').textContent = appData.currentRole;
+
+            // Mostra as seu00e7u00f5es apenas para Admin
+            if (appData.currentRole === 'Admin') {
+                $('#settings-change-password').classList.remove('hidden');
+                $('#settings-personalization').classList.remove('hidden');
+                // Carrega as configurau00e7u00f5es salvas
+                if (appData.appSettings) {
+                    $('#input-app-name').value = appData.appSettings.appName || 'Controle de Romaneios';
+                    $('#input-header-color').value = appData.appSettings.headerColor || '#0891b2';
+                    $('#select-header-color').value = appData.appSettings.headerColor || '#0891b2';
+                    if (appData.appSettings.logoBase64) {
+                        $('#logo-preview-img').src = appData.appSettings.logoBase64;
+                        $('#logo-preview-img').classList.remove('hidden');
+                        $('#logo-preview-text').classList.add('hidden');
+                    }
+                }
+                // Limpa os campos de senha
+                $('#input-current-password').value = '';
+                $('#input-new-password').value = '';
+                $('#input-confirm-password').value = '';
+                $('#password-message').classList.add('hidden');
+            } else {
+                $('#settings-change-password').classList.add('hidden');
+                $('#settings-personalization').classList.add('hidden');
+            }
+
+            $('#modal-settings').classList.remove('hidden');
+        });
+
+        $('#btn-close-settings').addEventListener('click', () => {
+            $('#modal-settings').classList.add('hidden');
+        });
+
+        $('#modal-settings').addEventListener('click', (e) => {
+            if (e.target === $('#modal-settings')) {
+                $('#modal-settings').classList.add('hidden');
+            }
+        });
+
+        // Upload de Logo
+        $('#btn-upload-logo').addEventListener('click', () => {
+            const fileInput = $('#input-logo');
+            const file = fileInput.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const base64 = e.target.result;
+                    if (!appData.appSettings) appData.appSettings = {};
+                    appData.appSettings.logoBase64 = base64;
+                    $('#logo-preview-img').src = base64;
+                    $('#logo-preview-img').classList.remove('hidden');
+                    $('#logo-preview-text').classList.add('hidden');
+                    saveData();
+                    applyTheme();
+                    alert('Logo carregado com sucesso!');
+                };
+                reader.readAsDataURL(file);
+            } else {
+                alert('Selecione um arquivo de imagem.');
+            }
+        });
+
+        // Mudar cor do Header
+        $('#select-header-color').addEventListener('change', (e) => {
+            $('#input-header-color').value = e.target.value;
+        });
+
+        $('#input-header-color').addEventListener('change', (e) => {
+            $('#select-header-color').value = e.target.value;
+        });
+
+        // Alterar Senha do Admin
+        $('#btn-save-password').addEventListener('click', () => {
+            const currentPassword = $('#input-current-password').value;
+            const newPassword = $('#input-new-password').value;
+            const confirmPassword = $('#input-confirm-password').value;
+            const messageElement = $('#password-message');
+            messageElement.classList.add('hidden');
+
+            if (!currentPassword || !newPassword || !confirmPassword) {
+                messageElement.textContent = 'Preencha todos os campos.';
+                messageElement.classList.remove('hidden', 'text-green-500');
+                messageElement.classList.add('text-red-500');
+                return;
+            }
+
+            if (newPassword.length < 6) {
+                messageElement.textContent = 'A nova senha deve ter no minimo 6 caracteres.';
+                messageElement.classList.remove('hidden', 'text-green-500');
+                messageElement.classList.add('text-red-500');
+                return;
+            }
+
+            if (newPassword !== confirmPassword) {
+                messageElement.textContent = 'As senhas nao coincidem.';
+                messageElement.classList.remove('hidden', 'text-green-500');
+                messageElement.classList.add('text-red-500');
+                return;
+            }
+
+            if (appData.admin.passwordHash !== hashPassword(currentPassword)) {
+                messageElement.textContent = 'Senha atual incorreta.';
+                messageElement.classList.remove('hidden', 'text-green-500');
+                messageElement.classList.add('text-red-500');
+                return;
+            }
+
+            appData.admin.passwordHash = hashPassword(newPassword);
+            saveData();
+            $('#input-current-password').value = '';
+            $('#input-new-password').value = '';
+            $('#input-confirm-password').value = '';
+            messageElement.textContent = 'Senha alterada com sucesso!';
+            messageElement.classList.remove('hidden', 'text-red-500');
+            messageElement.classList.add('text-green-500');
+        });
+
+        // Salvar Personalizau00e7u00e3o
+        $('#btn-save-personalization').addEventListener('click', () => {
+            if (!appData.appSettings) appData.appSettings = {};
+            appData.appSettings.appName = $('#input-app-name').value || 'Controle de Romaneios';
+            appData.appSettings.headerColor = $('#input-header-color').value || '#0891b2';
+            saveData();
+            applyTheme();
+            const messageElement = $('#personalization-message');
+            messageElement.textContent = 'Personalizau00e7u00e3o salva com sucesso!';
+            messageElement.classList.remove('hidden', 'text-red-500');
+            messageElement.classList.add('text-green-500');
+            setTimeout(() => {
+                messageElement.classList.add('hidden');
+            }, 3000);
+        });
+
+        // Aplicar tema ao carregar
+        function applyTheme() {
+            const settings = appData.appSettings || {};
+            const headerColor = settings.headerColor || '#0891b2';
+            const appName = settings.appName || 'Controle de Romaneios';
+            
+            // Muda a cor do header
+            const header = $('header');
+            if (header) {
+                header.style.backgroundColor = headerColor;
+            }
+
+            // Muda o nome do app em todos os h1
+            $$('h1').forEach(h1 => {
+                if (h1.textContent.includes('Controle de Romaneios')) {
+                    h1.textContent = appName;
+                }
+            });
+
+            // Muda o logo se existir
+            if (settings.logoBase64) {
+                const logoImg = $('#admin-logo-img');
+                const logoText = $('#admin-logo-text');
+                if (logoImg) {
+                    logoImg.src = settings.logoBase64;
+                    logoImg.classList.remove('hidden');
+                }
+                if (logoText) {
+                    logoText.classList.add('hidden');
+                }
+            }
+        }
+
+        // Lógica do Dashboard
+        function renderDashboard() {
+            updateUserInfo();
+            applyTheme();
+            renderTabs();
+            // Renderiza o conteúdo da primeira tab visível
+            const firstTab = $('#dashboard-tabs button:not(.hidden)');
+            if (firstTab) {
+                firstTab.click();
+            }
+            
+            // Renderiza as listas de gerenciamento
+            renderLeaderList();
+            renderBillingList();
+            renderTeamList();
+            renderEquipeDestinoOptions();
+        }
+
+        function renderTabs() {
+            const role = appData.currentRole;
+            const tabsContainer = $('#dashboard-tabs');
+            tabsContainer.innerHTML = '';
+
+            const tabs = [
+                { id: 'abastecimento', title: '📋 Abastecimento', roles: ['Admin'] },
+                { id: 'fila', title: '🚚 Fila FIFO', roles: ['Admin'] },
+                { id: 'separacao', title: '📦 Separação', roles: ['Líder'] },
+                { id: 'faturamento', title: '💰 Faturamento', roles: ['Faturamento'] },
+                { id: 'historico-config', title: '📊 Histórico & Config', roles: ['Admin'] }
+            ];
+
+            tabs.forEach(tab => {
+                if (tab.roles.includes(role)) {
+                    const button = document.createElement('button');
+                    button.className = 'dashboard-tab px-6 py-4 font-semibold border-b-2 border-transparent text-gray-600 hover:text-gray-800 whitespace-nowrap transition';
+                    button.setAttribute('data-tab', tab.id);
+                    button.textContent = tab.title;
+                    button.addEventListener('click', () => {
+                        // Ativa a tab
+                        $$('.dashboard-tab').forEach(btn => {
+                            btn.classList.remove('border-cyan-600', 'text-cyan-600');
+                            btn.classList.add('border-transparent', 'text-gray-600', 'hover:text-gray-800');
+                        });
+                        button.classList.add('border-cyan-600', 'text-cyan-600');
+                        button.classList.remove('border-transparent', 'text-gray-600', 'hover:text-gray-800');
+
+                        // Mostra o conteúdo
+                        $$('.tab-content').forEach(content => content.classList.add('hidden'));
+                        $(`#tab-${tab.id}`).classList.remove('hidden');
+
+                        // Renderiza o conteúdo específico da tab
+                        if (tab.id === 'fila') renderFilaFIFO();
+                        if (tab.id === 'faturamento') renderFaturamento();
+                        if (tab.id === 'historico-config') renderHistoricoCompleto();
+                    });
+                    tabsContainer.appendChild(button);
+                }
+            });
+        }
+
+        // Lógica da ABA 1 – ABASTECIMENTO
+        $('#btn-adicionar-romaneios').addEventListener('click', () => {
+            const romaneiosText = $('#romaneios-input').value.trim();
+            const dataEntrega = $('#data-entrega-input').value;
+            const messageElement = $('#abastecimento-message');
+            messageElement.classList.add('hidden');
+
+            if (!romaneiosText || !dataEntrega) {
+                messageElement.textContent = 'Preencha todos os campos.';
+                messageElement.classList.remove('hidden');
+                messageElement.classList.remove('text-green-500');
+                messageElement.classList.add('text-red-500');
+                return;
+            }
+
+            const romaneios = romaneiosText.split('\n')
+                .map(r => r.trim())
+                .filter(r => r.length > 0);
+
+            if (romaneios.length === 0) {
+                messageElement.textContent = 'Nenhum número de romaneio válido encontrado.';
+                messageElement.classList.remove('hidden');
+                messageElement.classList.remove('text-green-500');
+                messageElement.classList.add('text-red-500');
+                return;
+            }
+
+            let addedCount = 0;
+            romaneios.forEach(num => {
+                if (!appData.romaneios.find(r => r.numero === num)) {
+                    appData.romaneios.push({
+                        numero: num,
+                        dataEntrega: dataEntrega,
+                        status: 'Disponível',
+                        historico: [{
+                            timestamp: new Date().toISOString(),
+                            status: 'Disponível',
+                            user: appData.currentUser.name,
+                            role: appData.currentRole
+                        }]
+                    });
+                    addedCount++;
+                }
+            });
+
+            saveData();
+            $('#romaneios-input').value = '';
+            $('#data-entrega-input').value = '';
+            messageElement.textContent = `${addedCount} romaneio(s) adicionado(s) com sucesso.`;
+            messageElement.classList.remove('hidden');
+            messageElement.classList.remove('text-red-500');
+            messageElement.classList.add('text-green-500');
+        });
+
+        // Lógica da ABA 2 – FILA FIFO
+        function renderFilaFIFO() {
+            const fila = appData.romaneios
+                .filter(r => r.status !== 'Faturado')
+                .sort((a, b) => new Date(a.dataEntrega) - new Date(b.dataEntrega)); // FIFO: mais antigo primeiro
+
+            const tbody = $('#tabela-fila-fifo');
+            tbody.innerHTML = '';
+            $('#fila-vazia').classList.add('hidden');
+
+            if (fila.length === 0) {
+                $('#fila-vazia').classList.remove('hidden');
+                return;
+            }
+
+            fila.forEach((romaneio, index) => {
+                const delay = calculateDelay(romaneio.dataEntrega);
+                const row = tbody.insertRow();
+                
+                // Aplica a classe de status na linha
+                row.className = getStatusClass(romaneio.status);
+                
+                // Se for o mais atrasado e estiver em atraso 4+, pisca
+                if (index === 0 && delay.class.includes('atraso-4-mais-dias')) {
+                    row.classList.add('blink-red');
+                }
+
+                row.insertCell().textContent = romaneio.numero;
+                row.insertCell().textContent = new Date(romaneio.dataEntrega).toLocaleString('pt-BR');
+                row.insertCell().textContent = romaneio.status;
+                
+                const delayCell = row.insertCell();
+                delayCell.textContent = delay.text;
+                delayCell.className = `font-semibold ${delay.class}`;
+            });
+        }
+
+        $('#btn-exportar-fila').addEventListener('click', () => {
+            const fila = appData.romaneios
+                .filter(r => r.status !== 'Faturado')
+                .sort((a, b) => new Date(a.dataEntrega) - new Date(b.dataEntrega))
+                .map(r => {
+                    const delay = calculateDelay(r.dataEntrega);
+                    return {
+                        'Nº Romaneio': r.numero,
+                        'Data/Hora Entrega': new Date(r.dataEntrega).toLocaleString('pt-BR'),
+                        'Status': r.status,
+                        'Atraso': delay.text
+                    };
+                });
+            
+            if (fila.length > 0) {
+                exportToExcel(fila, 'Fila_FIFO');
+            } else {
+                alert('A fila FIFO está vazia para exportação.');
+            }
+        });
+
+        // Lógica da ABA 3 – SEPARAÇÃO
+        function renderEquipeDestinoOptions() {
+            const select = $('#separacao-equipe-destino');
+            select.innerHTML = '<option value="" disabled selected>Selecione a Equipe</option>';
+            appData.teams.forEach(team => {
+                const option = document.createElement('option');
+                option.value = team;
+                option.textContent = team;
+                select.appendChild(option);
+            });
+        }
+
+        $('#btn-retirar-romaneio').addEventListener('click', () => {
+            const numero = $('#separacao-retirar-romaneio').value.trim();
+            const equipe = $('#separacao-equipe-destino').value;
+            const messageElement = $('#separacao-retirar-message');
+            messageElement.classList.add('hidden');
+
+            if (!numero || !equipe) {
+                messageElement.textContent = 'Preencha o número do romaneio e selecione a equipe.';
+                messageElement.classList.remove('hidden');
+                messageElement.classList.remove('text-green-500');
+                messageElement.classList.add('text-red-500');
+                return;
+            }
+
+            const romaneio = appData.romaneios.find(r => r.numero === numero);
+
+            if (!romaneio) {
+                messageElement.textContent = `Romaneio ${numero} não encontrado.`;
+                messageElement.classList.remove('hidden');
+                messageElement.classList.remove('text-green-500');
+                messageElement.classList.add('text-red-500');
+                return;
+            }
+
+            if (romaneio.status !== 'Disponível') {
+                messageElement.textContent = `Romaneio ${numero} não está Disponível (Status: ${romaneio.status}).`;
+                messageElement.classList.remove('hidden');
+                messageElement.classList.remove('text-green-500');
+                messageElement.classList.add('text-red-500');
+                return;
+            }
+
+            romaneio.status = 'Em separação';
+            romaneio.leader = appData.currentUser.name;
+            romaneio.team = equipe;
+            romaneio.historico.push({
+                timestamp: new Date().toISOString(),
+                status: 'Em separação',
+                user: appData.currentUser.name,
+                role: appData.currentRole,
+                team: equipe
+            });
+
+            saveData();
+            $('#separacao-retirar-romaneio').value = '';
+            $('#separacao-equipe-destino').value = '';
+            messageElement.textContent = `Romaneio ${numero} retirado com sucesso pela equipe ${equipe}.`;
+            messageElement.classList.remove('hidden');
+            messageElement.classList.remove('text-red-500');
+            messageElement.classList.add('text-green-500');
+        });
+
+        $('#btn-finalizar-separacao').addEventListener('click', () => {
+            const numero = $('#separacao-finalizar-romaneio').value.trim();
+            const messageElement = $('#separacao-finalizar-message');
+            messageElement.classList.add('hidden');
+
+            if (!numero) {
+                messageElement.textContent = 'Preencha o número do romaneio.';
+                messageElement.classList.remove('hidden');
+                messageElement.classList.remove('text-green-500');
+                messageElement.classList.add('text-red-500');
+                return;
+            }
+
+            const romaneio = appData.romaneios.find(r => r.numero === numero);
+
+            if (!romaneio) {
+                messageElement.textContent = `Romaneio ${numero} não encontrado.`;
+                messageElement.classList.remove('hidden');
+                messageElement.classList.remove('text-green-500');
+                messageElement.classList.add('text-red-500');
+                return;
+            }
+
+            if (romaneio.status !== 'Em separação') {
+                messageElement.textContent = `Romaneio ${numero} não está Em Separação (Status: ${romaneio.status}).`;
+                messageElement.classList.remove('hidden');
+                messageElement.classList.remove('text-green-500');
+                messageElement.classList.add('text-red-500');
+                return;
+            }
+            
+            if (romaneio.leader !== appData.currentUser.name) {
+                messageElement.textContent = `Você não é o líder responsável por este romaneio (${romaneio.leader}).`;
+                messageElement.classList.remove('hidden');
+                messageElement.classList.remove('text-green-500');
+                messageElement.classList.add('text-red-500');
+                return;
+            }
+
+            romaneio.status = 'Pendente de faturamento';
+            romaneio.dataFinalizacaoSeparacao = new Date().toISOString();
+            romaneio.historico.push({
+                timestamp: new Date().toISOString(),
+                status: 'Pendente de faturamento',
+                user: appData.currentUser.name,
+                role: appData.currentRole
+            });
+
+            saveData();
+            $('#separacao-finalizar-romaneio').value = '';
+            messageElement.textContent = `Separação do Romaneio ${numero} concluída. Enviado para Faturamento.`;
+            messageElement.classList.remove('hidden');
+            messageElement.classList.remove('text-red-500');
+            messageElement.classList.add('text-green-500');
+        });
+
+        // Lógica da ABA 4 – FATURAMENTO
+        function renderFaturamento() {
+            const pendentes = appData.romaneios
+                .filter(r => r.status === 'Pendente de faturamento')
+                .sort((a, b) => new Date(a.dataEntrega) - new Date(b.dataEntrega));
+
+            const tbodyPendentes = $('#tabela-pendentes-faturamento');
+            tbodyPendentes.innerHTML = '';
+            $('#pendentes-vazio').classList.add('hidden');
+
+            if (pendentes.length === 0) {
+                $('#pendentes-vazio').classList.remove('hidden');
+            } else {
+                pendentes.forEach(romaneio => {
+                    const row = tbodyPendentes.insertRow();
+                    row.className = getStatusClass(romaneio.status);
+                    
+                    row.insertCell().textContent = romaneio.numero;
+                    row.insertCell().textContent = new Date(romaneio.dataEntrega).toLocaleString('pt-BR');
+                    row.insertCell().textContent = romaneio.dataFinalizacaoSeparacao ? new Date(romaneio.dataFinalizacaoSeparacao).toLocaleString('pt-BR') : '-';
+                    
+                    const actionCell = row.insertCell();
+                    const button = document.createElement('button');
+                    button.textContent = 'Faturar';
+                    button.className = 'bg-green-500 text-white px-3 py-1 rounded-lg text-sm hover:bg-green-600 transition';
+                    button.addEventListener('click', () => faturarRomaneio(romaneio.numero));
+                    actionCell.appendChild(button);
+                });
+            }
+
+            renderHistoricoFaturamento();
+        }
+
+        function faturarRomaneio(numero) {
+            const romaneio = appData.romaneios.find(r => r.numero === numero);
+            if (romaneio && romaneio.status === 'Pendente de faturamento') {
+                romaneio.status = 'Faturado';
+                romaneio.faturista = appData.currentUser.name;
+                romaneio.dataFaturamento = new Date().toISOString();
+                romaneio.historico.push({
+                    timestamp: romaneio.dataFaturamento,
+                    status: 'Faturado',
+                    user: appData.currentUser.name,
+                    role: appData.currentRole
+                });
+                saveData();
+                renderFaturamento();
+                alert(`✅ Romaneio ${numero} faturado com sucesso!`);
+            } else if (romaneio) {
+                alert(`❌ Romaneio ${numero} não está Pendente de Faturamento (Status: ${romaneio.status}).`);
+            } else {
+                alert(`❌ Romaneio ${numero} não encontrado.`);
+            }
+        }
+
+        $('#btn-faturar-varios').addEventListener('click', () => {
+            const romaneiosText = $('#faturamento-input').value.trim();
+            const messageElement = $('#faturamento-message');
+            messageElement.classList.add('hidden');
+
+            if (!romaneiosText) {
+                messageElement.textContent = 'Cole os números de romaneio para faturar.';
+                messageElement.classList.remove('hidden');
+                messageElement.classList.remove('text-green-500');
+                messageElement.classList.add('text-red-500');
+                return;
+            }
+
+            const numeros = romaneiosText.split('\n')
+                .map(r => r.trim())
+                .filter(r => r.length > 0);
+
+            let faturadosCount = 0;
+            let notFoundCount = 0;
+            let wrongStatusCount = 0;
+
+            numeros.forEach(numero => {
+                const romaneio = appData.romaneios.find(r => r.numero === numero);
+                if (!romaneio) {
+                    notFoundCount++;
+                } else if (romaneio.status === 'Pendente de faturamento') {
+                    romaneio.status = 'Faturado';
+                    romaneio.faturista = appData.currentUser.name;
+                    romaneio.dataFaturamento = new Date().toISOString();
+                    romaneio.historico.push({
+                        timestamp: romaneio.dataFaturamento,
+                        status: 'Faturado',
+                        user: appData.currentUser.name,
+                        role: appData.currentRole
+                    });
+                    faturadosCount++;
+                } else {
+                    wrongStatusCount++;
+                }
+            });
+
+            saveData();
+            renderFaturamento();
+            $('#faturamento-input').value = '';
+            
+            let msg = `✅ ${faturadosCount} romaneio(s) faturado(s) com sucesso.`;
+            if (wrongStatusCount > 0) msg += ` ⚠️ ${wrongStatusCount} não estavam Pendentes de Faturamento.`;
+            if (notFoundCount > 0) msg += ` ❌ ${notFoundCount} não foram encontrados.`;
+
+            messageElement.textContent = msg;
+            messageElement.classList.remove('hidden');
+            messageElement.classList.remove('text-red-500');
+            messageElement.classList.add('text-green-500');
+        });
+
+        function renderHistoricoFaturamento() {
+            const filtroData = $('#filtro-data-faturamento').value;
+            
+            let historico = appData.romaneios
+                .filter(r => r.status === 'Faturado')
+                .sort((a, b) => new Date(b.dataFaturamento) - new Date(a.dataFaturamento)); // Mais recente primeiro
+
+            if (filtroData) {
+                historico = historico.filter(r => {
+                    const dataFaturamento = new Date(r.dataFaturamento).toISOString().substring(0, 10);
+                    return dataFaturamento === filtroData;
+                });
+            }
+
+            const tbody = $('#tabela-historico-faturamento');
+            tbody.innerHTML = '';
+            $('#historico-faturamento-vazio').classList.add('hidden');
+
+            if (historico.length === 0) {
+                $('#historico-faturamento-vazio').classList.remove('hidden');
+                return;
+            }
+
+            historico.forEach(romaneio => {
+                const row = tbody.insertRow();
+                row.className = getStatusClass(romaneio.status);
+                row.insertCell().textContent = romaneio.numero;
+                row.insertCell().textContent = romaneio.dataFinalizacaoSeparacao ? new Date(romaneio.dataFinalizacaoSeparacao).toLocaleString('pt-BR') : '-';
+                row.insertCell().textContent = new Date(romaneio.dataFaturamento).toLocaleString('pt-BR');
+                row.insertCell().textContent = romaneio.faturista;
+            });
+        }
+
+        $('#filtro-data-faturamento').addEventListener('change', renderHistoricoFaturamento);
+        $('#btn-limpar-filtro-faturamento').addEventListener('click', () => {
+            $('#filtro-data-faturamento').value = '';
+            renderHistoricoFaturamento();
+        });
+
+        // Lógica da ABA 5 – HISTÓRICO E CONFIGURAÇÕES
+        
+        // Histórico Completo
+        function renderHistoricoCompleto() {
+            const busca = $('#filtro-busca-romaneio').value.trim().toLowerCase();
+            const statusFiltro = $('#filtro-status-romaneio').value;
+
+            let historico = appData.romaneios
+                .sort((a, b) => new Date(b.dataEntrega) - new Date(a.dataEntrega)); // Mais recente primeiro
+
+            if (busca) {
+                historico = historico.filter(r => r.numero.toLowerCase().includes(busca));
+            }
+
+            if (statusFiltro) {
+                historico = historico.filter(r => r.status === statusFiltro);
+            }
+
+            const tbody = $('#tabela-historico-completo');
+            tbody.innerHTML = '';
+            $('#historico-completo-vazio').classList.add('hidden');
+
+            if (historico.length === 0) {
+                $('#historico-completo-vazio').classList.remove('hidden');
+                return;
+            }
+
+            historico.forEach(romaneio => {
+                const row = tbody.insertRow();
+                row.className = getStatusClass(romaneio.status);
+                
+                row.insertCell().textContent = romaneio.numero;
+                row.insertCell().textContent = new Date(romaneio.dataEntrega).toLocaleString('pt-BR');
+                row.insertCell().textContent = romaneio.status;
+                row.insertCell().textContent = romaneio.leader || '-';
+                row.insertCell().textContent = romaneio.team || '-';
+                row.insertCell().textContent = romaneio.dataFinalizacaoSeparacao ? new Date(romaneio.dataFinalizacaoSeparacao).toLocaleString('pt-BR') : '-';
+                row.insertCell().textContent = romaneio.faturista || '-';
+                row.insertCell().textContent = romaneio.dataFaturamento ? new Date(romaneio.dataFaturamento).toLocaleString('pt-BR') : '-';
+            });
+        }
+
+        $('#filtro-busca-romaneio').addEventListener('input', renderHistoricoCompleto);
+        $('#filtro-status-romaneio').addEventListener('change', renderHistoricoCompleto);
+
+        $('#btn-exportar-historico').addEventListener('click', () => {
+            const historico = appData.romaneios
+                .sort((a, b) => new Date(b.dataEntrega) - new Date(a.dataEntrega))
+                .map(r => {
+                    return {
+                        'Nº Romaneio': r.numero,
+                        'Data/Hora Entrega': new Date(r.dataEntrega).toLocaleString('pt-BR'),
+                        'Status': r.status,
+                        'Líder': r.leader || '-',
+                        'Equipe': r.team || '-',
+                        'Data Finalização Separação': r.dataFinalizacaoSeparacao ? new Date(r.dataFinalizacaoSeparacao).toLocaleString('pt-BR') : '-',
+                        'Faturista': r.faturista || '-',
+                        'Data Faturamento': r.dataFaturamento ? new Date(r.dataFaturamento).toLocaleString('pt-BR') : '-'
+                    };
+                });
+            
+            if (historico.length > 0) {
+                exportToExcel(historico, 'Historico_Completo_Romaneios');
+            } else {
+                alert('O histórico está vazio para exportação.');
+            }
+        });
+
+        // Gerenciar Líderes
+        function renderLeaderList() {
+            const ul = $('#lista-lideres');
+            ul.innerHTML = '';
+            appData.leaders.forEach(leader => {
+                const li = document.createElement('li');
+                li.className = 'flex justify-between items-center p-2 bg-gray-50 rounded-lg';
+                li.innerHTML = `
+                    <span>${leader.name}</span>
+                    <button data-name="${leader.name}" class="btn-delete-leader text-red-500 hover:text-red-700 transition">Excluir</button>
+                `;
+                ul.appendChild(li);
+            });
+            $$('.btn-delete-leader').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const nameToDelete = e.target.getAttribute('data-name');
+                    appData.leaders = appData.leaders.filter(l => l.name !== nameToDelete);
+                    saveData();
+                    renderLeaderList();
+                });
+            });
+        }
+
+        $('#form-add-leader').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = $('#leader-name-input').value.trim();
+            const password = $('#leader-password-input').value;
+
+            if (name && password.length >= 6) {
+                if (appData.leaders.find(l => l.name === name)) {
+                    alert('Líder com este nome já existe.');
+                    return;
+                }
+                appData.leaders.push({
+                    name: name,
+                    passwordHash: hashPassword(password)
+                });
+                saveData();
+                renderLeaderList();
+                $('#leader-name-input').value = '';
+                $('#leader-password-input').value = '';
+            } else {
+                alert('Preencha nome e senha (mínimo 6 caracteres).');
+            }
+        });
+
+        // Gerenciar Faturistas
+        function renderBillingList() {
+            const ul = $('#lista-faturistas');
+            ul.innerHTML = '';
+            appData.billings.forEach(billing => {
+                const li = document.createElement('li');
+                li.className = 'flex justify-between items-center p-2 bg-gray-50 rounded-lg';
+                li.innerHTML = `
+                    <span>${billing.name}</span>
+                    <button data-name="${billing.name}" class="btn-delete-billing text-red-500 hover:text-red-700 transition">Excluir</button>
+                `;
+                ul.appendChild(li);
+            });
+            $$('.btn-delete-billing').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const nameToDelete = e.target.getAttribute('data-name');
+                    appData.billings = appData.billings.filter(b => b.name !== nameToDelete);
+                    saveData();
+                    renderBillingList();
+                });
+            });
+        }
+
+        $('#form-add-billing').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = $('#billing-name-input').value.trim();
+            const password = $('#billing-password-input').value;
+
+            if (name && password.length >= 6) {
+                if (appData.billings.find(b => b.name === name)) {
+                    alert('Faturista com este nome já existe.');
+                    return;
+                }
+                appData.billings.push({
+                    name: name,
+                    passwordHash: hashPassword(password)
+                });
+                saveData();
+                renderBillingList();
+                $('#billing-name-input').value = '';
+                $('#billing-password-input').value = '';
+            } else {
+                alert('Preencha nome e senha (mínimo 6 caracteres).');
+            }
+        });
+
+        // Gerenciar Equipes
+        function renderTeamList() {
+            const ul = $('#lista-equipes');
+            ul.innerHTML = '';
+            appData.teams.forEach(team => {
+                const li = document.createElement('li');
+                li.className = 'flex justify-between items-center p-2 bg-gray-50 rounded-lg';
+                li.innerHTML = `
+                    <span>${team}</span>
+                    <button data-name="${team}" class="btn-delete-team text-red-500 hover:text-red-700 transition">Excluir</button>
+                `;
+                ul.appendChild(li);
+            });
+            $$('.btn-delete-team').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const nameToDelete = e.target.getAttribute('data-name');
+                    appData.teams = appData.teams.filter(t => t !== nameToDelete);
+                    saveData();
+                    renderTeamList();
+                    renderEquipeDestinoOptions();
+                });
+            });
+        }
+
+        $('#form-add-team').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = $('#team-name-input').value.trim();
+
+            if (name) {
+                if (appData.teams.includes(name)) {
+                    alert('Equipe com este nome já existe.');
+                    return;
+                }
+                appData.teams.push(name);
+                saveData();
+                renderTeamList();
+                renderEquipeDestinoOptions();
+                $('#team-name-input').value = '';
+            } else {
+                alert('Preencha o nome da equipe.');
+            }
+        });
+
+        // Limpar Dados
+        $('#btn-limpar-dados').addEventListener('click', () => {
+            showConfirmModal('Limpar Todos os Dados', 'Tem certeza que deseja apagar TODOS os dados do sistema (romaneios, usuários, equipes)? Esta ação é irreversível.', () => {
+                localStorage.removeItem(STORAGE_KEY);
+                appData = {
+                    admin: null,
+                    leaders: [],
+                    billings: [],
+                    teams: ['Equipe A', 'Equipe B', 'Equipe C'],
+                    romaneios: [],
+                    currentUser: null,
+                    currentRole: null
+                };
+                alert('Todos os dados foram apagados. O sistema será reiniciado.');
+                window.location.reload();
+            });
+        });
+
+        // Modal de Confirmação
+        let confirmCallback = null;
+        function showConfirmModal(title, body, callback) {
+            $('#modal-confirm-title').textContent = title;
+            $('#modal-confirm-body').textContent = body;
+            confirmCallback = callback;
+            $('#modal-confirm').classList.remove('hidden');
+        }
+
+        $('#btn-confirm-cancel').addEventListener('click', () => {
+            $('#modal-confirm').classList.add('hidden');
+            confirmCallback = null;
+        });
+
+        $('#btn-confirm-ok').addEventListener('click', () => {
+            $('#modal-confirm').classList.add('hidden');
+            if (confirmCallback) {
+                confirmCallback();
+            }
+            confirmCallback = null;
+        });
+
+        // Função de Exportação para Excel
+        function exportToExcel(data, filename) {
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Dados");
+            XLSX.writeFile(wb, `${filename}_${new Date().toISOString().substring(0, 10)}.xlsx`);
+        }
+
+        // Inicia a aplicação
+        document.addEventListener('DOMContentLoaded', checkInitialState);
+    </script>
+</body>
+</html>
